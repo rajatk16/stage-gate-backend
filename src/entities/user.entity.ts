@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { Exclude } from 'class-transformer';
 
 import { Review } from './review.entity';
 
@@ -23,6 +24,7 @@ export class User {
   lastName: string;
 
   @Column()
+  @Exclude()
   password: string;
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.REVIEWER })
