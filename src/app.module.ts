@@ -3,6 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 import { User, Talk, Review } from './entities';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -21,9 +23,11 @@ import { User, Talk, Review } from './entities';
         database: config.getOrThrow<string>('DB_NAME'),
         entities: [User, Talk, Review],
         autoLoadEntities: true,
-        synchronize: false,
+        synchronize: true,
       }),
     }),
+    AuthModule,
+    UsersModule,
   ],
 })
 export class AppModule {}
