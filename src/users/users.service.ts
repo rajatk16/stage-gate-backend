@@ -1,10 +1,10 @@
 import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
-import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { User } from '../entities';
-import { CreateUserDto } from '../dtos';
+import { CreateUserDto, UpdateUserDto } from '../dtos';
 
 @Injectable()
 export class UsersService {
@@ -49,9 +49,31 @@ export class UsersService {
     });
   }
 
-  async findById(id: number): Promise<User | null> {
-    return this.userRepository.findOne({
-      where: { id },
+  async findAll(): Promise<User[]> {
+    return this.userRepository.find();
+  }
+
+  async update(id: string, updateUserDto: UpdateUserDto) {
+    const user = await this.userRepository.findOne({ where: { id } });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const updatedUser = await this.userRepository.update(id, {
+      firstName: updateUserDto.firstName,
+      lastName: updateUserDto.lastName,
+      updatedAt: new Date().toISOString(),
     });
+
+    return updatedUser;
+  }
+
+  async delete(id: string): Promise<void> {
+    const result = await this.userRepository.delete(id);
+
+    if (result.affected === 0) {
+      throw new NotFoundException('User not found');
+    }
   }
 }
