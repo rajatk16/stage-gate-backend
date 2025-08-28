@@ -1,17 +1,16 @@
-import helmet from 'helmet';
-import { NestFactory } from '@nestjs/core';
-import { Reflector } from '@nestjs/core';
+import { DataSource } from 'typeorm';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 
 import { AppModule } from './app.module';
+import { TenantMiddleware } from './middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Middlewares
-  app.use(helmet());
-  app.enableCors();
-
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  app.use(new TenantMiddleware(app.get(DataSource)).use);
   // Global interceptors and pipes
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
   app.useGlobalPipes(new ValidationPipe({ transform: true }));

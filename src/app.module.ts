@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
-import { HealthModule } from './health/health.module';
+import { HealthModule } from './health';
 
 @Module({
   imports: [
