@@ -1,23 +1,27 @@
-import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 
-import { HealthModule } from './health';
+import { AuthModule } from '@modules/auth/auth.module';
+import { DatabaseModule } from '@modules/database/database.module';
+import { TenantMiddleware } from '@common/middlewares/Tenant.middleware';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    TypeOrmModule.forRootAsync({
+    MongooseModule.forRootAsync({
       imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        url: config.getOrThrow<string>('DATABASE_URL'),
-        autoLoadEntities: true,
-        synchronize: true,
+      useFactory: (configService: ConfigService) => ({
+        uri: configService.get<string>('MONGO_URI') ?? 'mongodb://localhost:27017/stage-gate',
       }),
+      inject: [ConfigService],
     }),
-    HealthModule,
+    AuthModule,
+    DatabaseModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(TenantMiddleware).forRoutes('*/tenant/:tenantId/*');
+  }
+}
