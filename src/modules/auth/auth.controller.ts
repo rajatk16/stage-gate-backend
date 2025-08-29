@@ -1,10 +1,10 @@
+import { Request } from 'express';
 import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from '@common/guards';
 import { CurrentUser } from '@common/decorators';
 import { LoginDto, RefreshTokenDto, SignupDto } from '@common/dtos';
-import { Request } from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -32,7 +32,6 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(@CurrentUser() user: Request['user']) {
-    console.log(user);
     await this.authService.logout(user.userId);
     return {
       ok: true,
