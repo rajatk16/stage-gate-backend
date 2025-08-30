@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { Request } from 'express';
 import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 
@@ -32,7 +33,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(@CurrentUser() user: Request['user']) {
-    await this.authService.logout(user.userId);
+    await this.authService.logout(new Types.ObjectId(user.userId));
     return {
       ok: true,
     };

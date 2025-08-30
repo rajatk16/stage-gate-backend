@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import * as request from 'supertest';
 import { JwtAuthGuard } from '@common/guards';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -89,7 +90,7 @@ describe('AuthController', () => {
     it('should return 400 when password is too short', async () => {
       const invalidSignupDto = {
         ...signupDto,
-        password: '123', // Less than 8 characters
+        password: '123',
       };
 
       await request(app.getHttpServer()).post('/auth/signup').send(invalidSignupDto).expect(400);
@@ -227,14 +228,12 @@ describe('AuthController', () => {
 
   describe('POST /auth/logout', () => {
     const mockUser = {
-      userId: 'user123',
+      userId: '507f1f77bcf86cd799439011',
       email: 'john@example.com',
     };
 
     beforeEach(() => {
-      // Mock the guard to pass authentication and inject user
       mockJwtAuthGuard.canActivate.mockImplementation((context: any) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         const request = context.switchToHttp().getRequest();
 
         request.user = mockUser;
@@ -250,12 +249,11 @@ describe('AuthController', () => {
         .set('Authorization', 'Bearer valid_token')
         .expect(200);
 
-      expect(mockAuthService.logout).toHaveBeenCalledWith(mockUser.userId);
+      expect(mockAuthService.logout).toHaveBeenCalledWith(new Types.ObjectId(mockUser.userId));
       expect(response.body).toEqual({ ok: true });
     });
 
     it('should require authentication', async () => {
-      // Mock guard to reject authentication
       mockJwtAuthGuard.canActivate.mockReturnValue(false);
 
       await request(app.getHttpServer()).post('/auth/logout').expect(403);
@@ -269,7 +267,7 @@ describe('AuthController', () => {
 
       await request(app.getHttpServer()).post('/auth/logout').set('Authorization', 'Bearer valid_token').expect(500);
 
-      expect(mockAuthService.logout).toHaveBeenCalledWith(mockUser.userId);
+      expect(mockAuthService.logout).toHaveBeenCalledWith(new Types.ObjectId(mockUser.userId));
     });
   });
 });
