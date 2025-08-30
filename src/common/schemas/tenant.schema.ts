@@ -14,4 +14,3 @@ export class Tenant extends Document {
 }
 
 export const TenantSchema = SchemaFactory.createForClass(Tenant);
-TenantSchema.index({ slug: 1 }, { unique: true });

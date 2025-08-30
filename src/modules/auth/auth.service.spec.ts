@@ -10,11 +10,9 @@ import { AuthService } from './auth.service';
 import { User, Tenant, Membership, Role } from '@common/schemas';
 import { SignupDto, LoginDto, RefreshTokenDto } from '@common/dtos';
 
-// Mock bcrypt
 jest.mock('bcryptjs');
 const mockedBcrypt = bcrypt as jest.Mocked<typeof bcrypt>;
 
-// Mock JwtService constructor to handle refresh token generation
 jest.mock('@nestjs/jwt', () => {
   const mockSign = jest.fn().mockReturnValue('mocked_token');
   return {
@@ -313,9 +311,7 @@ describe('AuthService', () => {
       const user1 = { ...mockUser, currentRefreshTokenHash: 'hash1' };
       const user2 = { ...mockUser, currentRefreshTokenHash: 'hash2' };
       mockUserModel.find.mockResolvedValue([user1, user2]);
-      mockedBcrypt.compare
-        .mockResolvedValueOnce(false as never) // First user doesn't match
-        .mockResolvedValueOnce(true as never); // Second user matches
+      mockedBcrypt.compare.mockResolvedValueOnce(false as never).mockResolvedValueOnce(true as never);
       mockMembershipModel.find.mockReturnValue({
         lean: jest.fn().mockResolvedValue([mockMembership]),
       });
