@@ -33,4 +33,4 @@ export class Submission extends Document {
 }
 
 export const SubmissionSchema = SchemaFactory.createForClass(Submission);
-SubmissionSchema.index({ tenantId: 1, title: 1 });
+SubmissionSchema.index({ tenantId: 1, title: 1 }, { unique: true });
