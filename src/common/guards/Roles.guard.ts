@@ -2,46 +2,41 @@ import { Request } from 'express';
 import { Reflector } from '@nestjs/core';
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 
-import { Role } from '@common/schemas';
 import { ROLES_KEY } from '@common/decorators';
-
-declare module 'express' {
-  interface Request {
-    user: {
-      userId: string;
-      email: string;
-      memberships: Array<{
-        tenantId: string;
-        role: Role;
-      }>;
-    };
-    tenantId?: string;
-  }
-}
+import { ConferenceRole, OrgRole } from '@common/enums';
+import { UserService } from '@modules/user/user.service';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly userService: UserService,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const requiredRoles = this.reflector.getAllAndOverride<{ org?: OrgRole[]; conf: ConferenceRole[] }>(ROLES_KEY, [
       context.getHandler(),
-      context.getClass(),
     ]);
-
     if (!requiredRoles) return true;
 
     const request = context.switchToHttp().getRequest<Request>();
-    const user = request.user;
-    const tenantId = request.tenantId;
+    const { userId } = request.user;
 
-    if (!user || !tenantId) throw new ForbiddenException('No tenant or user in request');
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      throw new ForbiddenException('No user found in request');
+    }
 
-    const membership = user.memberships.find((membership) => membership.tenantId === tenantId);
-    if (!membership) throw new ForbiddenException('User not part of this tenant');
+    if (requiredRoles.org?.length) {
+      const hasOrgRole = user.organizations.some((org) => requiredRoles.org?.includes(org.role as OrgRole));
+      if (hasOrgRole) return true;
+    }
 
-    if (!requiredRoles.includes(membership.role)) throw new ForbiddenException('User not authorized');
+    if (requiredRoles.conf?.length) {
+      const hasConfRole = user.conferences.some((conf) => requiredRoles.conf?.includes(conf.role as ConferenceRole));
+      if (hasConfRole) return true;
+    }
 
-    return true;
+    throw new ForbiddenException('Insufficient permissions');
   }
 }

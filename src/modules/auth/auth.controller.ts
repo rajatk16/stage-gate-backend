@@ -1,41 +1,58 @@
-import { Types } from 'mongoose';
-import { Request } from 'express';
-import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
 
+import { Request } from 'express';
 import { AuthService } from './auth.service';
-import { JwtAuthGuard } from '@common/guards';
-import { CurrentUser } from '@common/decorators';
-import { LoginDto, RefreshTokenDto, SignupDto } from '@common/dtos';
+import { JWTAuthGuard, JWTRefreshGuard } from '@common/guards';
+import { ForgotPasswordDto, LoginDto, RegisterDto, ResetPasswordDto } from './dtos';
+
+declare module 'express' {
+  interface Request {
+    user: {
+      userId: string;
+      email: string;
+    };
+  }
+}
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @HttpCode(HttpStatus.CREATED)
-  @Post('signup')
-  async signup(@Body() dto: SignupDto) {
-    return this.authService.signup(dto);
+  @Post('register')
+  async register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
   }
 
-  @HttpCode(HttpStatus.OK)
+  @Get('verify-email')
+  async verifyEmail(@Query('token') token: string) {
+    return this.authService.verifyEmail(token);
+  }
+
   @Post('login')
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
 
-  @HttpCode(HttpStatus.OK)
+  @UseGuards(JWTRefreshGuard)
   @Post('refresh')
-  async refresh(@Body() dto: RefreshTokenDto) {
-    return this.authService.refresh(dto);
+  refresh(@Req() req: Request) {
+    console.log(req.user);
+    return this.authService.refreshTokens(req.user.userId);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JWTAuthGuard)
   @Post('logout')
-  @HttpCode(HttpStatus.OK)
-  async logout(@CurrentUser() user: Request['user']) {
-    await this.authService.logout(new Types.ObjectId(user.userId));
-    return {
-      ok: true,
-    };
+  logout(@Req() req: Request) {
+    return this.authService.logout(req.user.userId);
+  }
+
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 }

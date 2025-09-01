@@ -33,6 +33,7 @@ export default tseslint.config(
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-member-access': 'off',
       '@typescript-eslint/no-unsafe-function-type': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
 );
