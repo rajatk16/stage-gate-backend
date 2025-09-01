@@ -1,142 +1,182 @@
-import { Model, Types } from 'mongoose';
-import * as bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
+import { Model } from 'mongoose';
+import { v4 as uuid } from 'uuid';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 
-import { Membership, Role, Tenant, User } from '@common/schemas';
-import { LoginDto, RefreshTokenDto, SignupDto } from '@common/dtos';
+import { User } from '@common/schemas';
+import { LoginDto, RegisterDto } from './dtos';
 
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectModel(User.name) private userModel: Model<User>,
-    @InjectModel(Tenant.name) private tenantModel: Model<Tenant>,
-    @InjectModel(Membership.name) private membershipModel: Model<Membership>,
-    private jwtService: JwtService,
-    private config: ConfigService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+    @InjectModel(User.name) private readonly userModel: Model<User>,
   ) {}
 
-  private saltRounds(): number {
-    return parseInt(this.config.getOrThrow<string>('BCRYPT_SALT_ROUNDS', '12'), 10);
-  }
-
-  async signup(signupDto: SignupDto) {
-    const existingUser = await this.userModel.exists({ email: signupDto.email });
+  async register(dto: RegisterDto) {
+    const existingUser = await this.userModel.findOne({ email: dto.email });
     if (existingUser) {
-      throw new BadRequestException('Email already in use');
+      throw new BadRequestException('User with this email already exists.');
     }
 
-    const passwordHash = await bcrypt.hash(signupDto.password, this.saltRounds());
-
-    const createdUser = await this.userModel.create({
-      name: signupDto.name,
-      email: signupDto.email.toLowerCase(),
+    const passwordHash = await this.hashData(dto.password);
+    const user = await this.userModel.create({
+      email: dto.email,
       passwordHash,
+      name: dto.name,
     });
 
-    const tokens = this.generateTokens(createdUser);
-    await this.setRefreshTokenHash(<Types.ObjectId>createdUser._id, tokens.refreshToken);
+    await this.createEmailVerfication(user._id as string);
 
-    return {
-      user: {
-        id: createdUser._id,
-        email: createdUser.email,
-        name: createdUser.name,
-      },
-      tokens,
-    };
+    const tokens = await this.getTokens(user._id as string, user.email);
+    user.refreshTokenHash = await this.hashData(tokens.refreshToken);
+    await user.save();
+
+    return tokens;
   }
 
-  async login(loginDto: LoginDto) {
-    const user = await this.userModel.findOne({ email: loginDto.email });
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+  async login(dto: LoginDto) {
+    const user = await this.userModel.findOne({ email: dto.email });
 
-    const valid = await bcrypt.compare(loginDto.password, user.passwordHash);
-    if (!valid) throw new UnauthorizedException('Invalid credentials');
-
-    const memberships = await this.membershipModel.find({ userId: user._id }).lean();
-    const membershipClaims = memberships.map((membershipClaim) => ({
-      tenantId: membershipClaim.tenantId.toString(),
-      role: membershipClaim.role,
-    }));
-
-    const tokens = this.generateTokens(user, membershipClaims);
-    await this.setRefreshTokenHash(<Types.ObjectId>user._id, tokens.refreshToken);
-
-    return {
-      user: {
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        memberships: membershipClaims,
-      },
-      tokens,
-    };
-  }
-
-  async refresh(refreshTokenDto: RefreshTokenDto) {
-    const usersWithHash = await this.userModel.find({
-      currentRefreshTokenHash: {
-        $exists: true,
-      },
-    });
-    for (const user of usersWithHash) {
-      const match = await bcrypt.compare(refreshTokenDto.refreshToken, user?.currentRefreshTokenHash ?? '');
-      if (match) {
-        const memberships = await this.membershipModel.find({ userId: user._id }).lean();
-        const membershipClaims = memberships.map((membershipClaim) => ({
-          tenantId: membershipClaim.tenantId.toString(),
-          role: membershipClaim.role,
-        }));
-        const tokens = this.generateTokens(user, membershipClaims);
-        await this.setRefreshTokenHash(<Types.ObjectId>user._id, tokens.refreshToken);
-        return {
-          user: {
-            id: user._id,
-            email: user.email,
-            name: user.name,
-            memberships: membershipClaims,
-          },
-          tokens,
-        };
-      }
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials. User not found.');
     }
-    throw new UnauthorizedException('Invalid refresh token');
+
+    const passwordMatches = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!passwordMatches) {
+      throw new UnauthorizedException('Invalid credentials. Password does not match.');
+    }
+
+    const tokens = await this.getTokens(user._id as string, user.email);
+    user.refreshTokenHash = await this.hashData(tokens.refreshToken);
+    await user.save();
+
+    return tokens;
   }
 
-  async logout(userId: Types.ObjectId) {
-    await this.userModel.findByIdAndUpdate(userId, { $unset: { currentRefreshTokenHash: '' } });
+  async refreshTokens(userId: string) {
+    const user = await this.userModel.findById(userId);
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials. User not found or does not have a refresh token.');
+    }
+
+    const tokens = await this.getTokens(user._id as string, user.email);
+    user.refreshTokenHash = await this.hashData(tokens.refreshToken);
+    await user.save();
+
+    return tokens;
   }
 
-  private generateTokens(user: User, memberships: Array<{ tenantId: string; role: Role }> = []) {
-    const payload = {
-      sub: user._id,
-      email: user.email,
-      memberships,
-    };
+  async validateRefreshToken(userId: string, refreshToken: string) {
+    const user = await this.userModel.findById(userId);
+    if (!user || !user.refreshTokenHash) {
+      throw new UnauthorizedException('Invalid credentials. User not found.');
+    }
 
-    const accessToken = this.jwtService.sign(payload);
+    const match = await bcrypt.compare(refreshToken, user.refreshTokenHash);
+    if (!match) {
+      throw new UnauthorizedException('Invalid credentials. Refresh token does not match.');
+    }
 
-    const refreshSecret = this.config.getOrThrow<string>('JWT_REFRESH_TOKEN_SECRET');
-    const refreshExpires = this.config.getOrThrow<string>('JWT_REFRESH_EXPIRATION');
-    const refreshJwtService = new JwtService({
-      secret: refreshSecret,
-      signOptions: {
-        expiresIn: refreshExpires,
-      },
+    return user;
+  }
+
+  async logout(userId: string) {
+    await this.userModel.findByIdAndUpdate(userId, { refreshTokenHash: null });
+    return { success: true };
+  }
+
+  async createEmailVerfication(userId: string) {
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    const token = uuid();
+
+    user.emailVerificationToken = token;
+    await user.save();
+
+    console.log(`Verify your email: http://localhost:3000/auth/verify-email?token=${token}`);
+
+    return token;
+  }
+
+  async verifyEmail(token: string) {
+    const user = await this.userModel.findOne({ emailVerificationToken: token });
+    if (!user) {
+      throw new UnauthorizedException('Invalid or expired token.');
+    }
+
+    user.emailVerified = true;
+    user.emailVerificationToken = undefined;
+    await user.save();
+
+    return { success: true };
+  }
+
+  private async getTokens(userId: string, email: string) {
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(
+        {
+          sub: userId,
+          email,
+        },
+        {
+          secret: this.configService.getOrThrow<string>('JWT_ACCESS_TOKEN_SECRET'),
+          expiresIn: this.configService.getOrThrow<string>('JWT_ACCESS_TOKEN_EXPIRES_IN'),
+        },
+      ),
+      this.jwtService.signAsync(
+        {
+          sub: userId,
+          email,
+        },
+        {
+          secret: this.configService.getOrThrow<string>('JWT_REFRESH_TOKEN_SECRET'),
+          expiresIn: this.configService.getOrThrow<string>('JWT_REFRESH_TOKEN_EXPIRES_IN'),
+        },
+      ),
+    ]);
+    return { accessToken, refreshToken };
+  }
+
+  async forgotPassword(email: string) {
+    const user = await this.userModel.findOne({ email });
+    if (!user) throw new NotFoundException('User not found.');
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+
+    user.resetPasswordToken = resetToken;
+    await user.save();
+
+    // TODO: send resetToken via email
+    return { message: 'Password reset token generated', resetToken };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const user = await this.userModel.findOne({
+      resetPasswordToken: token,
     });
-    const refreshToken = refreshJwtService.sign(payload);
 
-    return {
-      accessToken,
-      refreshToken,
-    };
+    if (!user) throw new NotFoundException('User not found.');
+
+    const hashedPassword = await this.hashData(newPassword);
+    user.passwordHash = hashedPassword;
+    user.resetPasswordToken = undefined;
+    await user.save();
+
+    return { message: 'Password reset successfully' };
   }
 
-  private async setRefreshTokenHash(userId: Types.ObjectId, refreshToken: string) {
-    const hash = await bcrypt.hash(refreshToken, this.saltRounds());
-    await this.userModel.findByIdAndUpdate(userId, { currentRefreshTokenHash: hash });
+  hashData(data: string) {
+    const saltRounds = parseInt(this.configService.getOrThrow<string>('BCRYPT_SALT_ROUNDS'));
+    return bcrypt.hash(data, saltRounds);
   }
 }

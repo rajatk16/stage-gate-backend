@@ -4,49 +4,44 @@ import { MongooseModule } from '@nestjs/mongoose';
 import {
   User,
   Review,
-  Tenant,
-  Membership,
+  Conference,
   Submission,
   UserSchema,
-  EventSchema,
+  InviteToken,
+  Organization,
   ReviewSchema,
-  TenantSchema,
-  MembershipSchema,
-  ReviewAssignment,
+  ConferenceSchema,
   SubmissionSchema,
-  ReviewAssignmentSchema,
+  InviteTokenSchema,
+  OrganizationSchema,
 } from '@common/schemas';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       {
-        name: Tenant.name,
-        schema: TenantSchema,
+        name: Conference.name,
+        schema: ConferenceSchema,
       },
       {
-        name: User.name,
-        schema: UserSchema,
+        name: InviteToken.name,
+        schema: InviteTokenSchema,
       },
       {
-        name: Submission.name,
-        schema: SubmissionSchema,
+        name: Organization.name,
+        schema: OrganizationSchema,
       },
       {
         name: Review.name,
         schema: ReviewSchema,
       },
       {
-        name: ReviewAssignment.name,
-        schema: ReviewAssignmentSchema,
+        name: Submission.name,
+        schema: SubmissionSchema,
       },
       {
-        name: Event.name,
-        schema: EventSchema,
-      },
-      {
-        name: Membership.name,
-        schema: MembershipSchema,
+        name: User.name,
+        schema: UserSchema,
       },
     ]),
   ],

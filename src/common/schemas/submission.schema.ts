@@ -1,36 +1,34 @@
-import { Prop, SchemaFactory, Schema } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-
-export enum SubmissionStatus {
-  DRAFT = 'DRAFT',
-  SUBMITTED = 'SUBMITTED',
-  ACCEPTED = 'ACCEPTED',
-  REJECTED = 'REJECTED',
-}
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 
 @Schema({ timestamps: true })
 export class Submission extends Document {
-  @Prop({ required: true })
+  @Prop({ required: true, type: Types.ObjectId, ref: 'Conference' })
+  conferenceId: Types.ObjectId;
+
+  @Prop({ required: true, type: Types.ObjectId, ref: 'User' })
+  author: Types.ObjectId;
+
+  @Prop({ required: true, minlength: 5, maxlength: 150 })
   title: string;
 
-  @Prop()
+  @Prop({ required: true, minlength: 50, maxlength: 2000 })
   abstract: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true, index: true })
-  tenantId: Types.ObjectId;
+  @Prop()
+  bio?: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  createdBy: Types.ObjectId;
-
-  @Prop({ enum: SubmissionStatus, default: SubmissionStatus.DRAFT })
-  status: SubmissionStatus;
-
-  @Prop({ type: [String], default: [] })
-  attachments: string[];
+  @Prop({
+    type: String,
+    enum: ['submitted', 'under_review', 'accepted', 'rejected', 'withdrawn'],
+    default: 'submitted',
+  })
+  status: string;
 
   @Prop({ type: [String], default: [] })
-  authors: string[];
+  tags: string[];
+
+  @Prop({ type: Object })
+  metadata: Record<string, any>;
 }
-
 export const SubmissionSchema = SchemaFactory.createForClass(Submission);
-SubmissionSchema.index({ tenantId: 1, title: 1 }, { unique: true });
