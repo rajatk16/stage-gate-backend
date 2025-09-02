@@ -3,13 +3,14 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { OrgRole } from '@common/enums';
-import { Organization, User } from '@common/schemas';
+import { Conference, Organization, User } from '@common/schemas';
 import { CreateOrganizationDto, UpdateOrganizationDto } from './dto';
 
 @Injectable()
 export class OrganizationService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<User>,
+    @InjectModel(Conference.name) private readonly conferenceModel: Model<Conference>,
     @InjectModel(Organization.name) private readonly organizationModel: Model<Organization>,
   ) {}
 
@@ -51,6 +52,8 @@ export class OrganizationService {
       { new: true },
     );
     if (!user) throw new NotFoundException('User not found');
+
+    await this.conferenceModel.deleteMany({ organizationId: id });
 
     await this.organizationModel.findByIdAndDelete(id);
 

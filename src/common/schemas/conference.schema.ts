@@ -15,11 +15,11 @@ export class Conference extends Document {
   @Prop()
   description: string;
 
-  @Prop()
-  cfpOpenDate: Date;
+  @Prop({ required: false, type: Object })
+  metadata?: Record<string, any>;
 
-  @Prop()
-  cfpCloseDate: Date;
+  @Prop({ required: true, type: Types.ObjectId, ref: 'User' })
+  createdBy: Types.ObjectId;
 }
 
 export const ConferenceSchema = SchemaFactory.createForClass(Conference);

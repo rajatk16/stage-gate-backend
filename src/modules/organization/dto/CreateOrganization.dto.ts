@@ -7,6 +7,10 @@ export class CreateOrganizationDto {
 
   @IsString()
   @IsNotEmpty()
+  slug: string;
+
+  @IsString()
+  @IsNotEmpty()
   @IsOptional()
   description?: string;
 

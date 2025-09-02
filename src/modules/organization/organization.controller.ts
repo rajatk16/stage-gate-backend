@@ -31,14 +31,14 @@ export class OrganizationController {
 
   @UseGuards(JWTAuthGuard, RolesGuard)
   @Roles({ org: [OrgRole.OWNER, OrgRole.ADMIN] })
-  @Patch(':id')
+  @Patch(':orgId')
   async updateOrganization(@Param('id') id: string, @Body() dto: UpdateOrganizationDto) {
     return this.organizationService.update(id, dto);
   }
 
   @UseGuards(JWTAuthGuard, RolesGuard)
   @Roles({ org: [OrgRole.OWNER] })
-  @Delete(':id')
+  @Delete(':orgId')
   async deleteOrganization(@Param('id') id: string, @Req() req: Request) {
     return this.organizationService.remove(req.user.userId, id);
   }
