@@ -5,7 +5,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
   timestamps: true,
 })
 export class Organization extends Document {
-  @Prop({ required: true })
+  @Prop({ required: true, unique: true })
   name: string;
 
   @Prop({ required: true, unique: true })

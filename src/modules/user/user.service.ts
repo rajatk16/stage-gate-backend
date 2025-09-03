@@ -27,16 +27,18 @@ export class UserService {
   }
 
   async updateUserEmail(userId: string, newEmail: string) {
+    const normalizedEmail = newEmail.toLowerCase().trim();
     const user = await this.userModel.findById(userId);
 
     if (!user) throw new NotFoundException('User not found');
 
-    if (user.email === newEmail) throw new BadRequestException('New email is the same as the current email');
+    if (user.email.toLowerCase().trim() === normalizedEmail)
+      throw new BadRequestException('New email is the same as the current email');
 
-    const existingUser = await this.userModel.findOne({ email: newEmail });
+    const existingUser = await this.userModel.findOne({ email: normalizedEmail });
     if (existingUser) throw new BadRequestException('Email already exists');
 
-    user.email = newEmail;
+    user.email = normalizedEmail;
     user.emailVerified = false;
     await user.save();
 

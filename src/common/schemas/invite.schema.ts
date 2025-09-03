@@ -1,9 +1,9 @@
 import { Document, Types } from 'mongoose';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 
-@Schema({ timestamps: true })
-export class InviteToken extends Document {
-  @Prop({ required: true })
+@Schema({ timestamps: true, expires: '7d' })
+export class Invite extends Document {
+  @Prop({ required: true, unique: true })
   token: string;
 
   @Prop({ type: Types.ObjectId, ref: 'Organization' })
@@ -11,9 +11,6 @@ export class InviteToken extends Document {
 
   @Prop({ type: Types.ObjectId, ref: 'Conference' })
   conferenceId?: Types.ObjectId;
-
-  @Prop({ required: true, default: Date.now() + 7 * 24 * 60 * 60 * 1000 })
-  expiresAt: Date;
 
   @Prop({ required: false })
   orgRole?: string;
@@ -24,8 +21,8 @@ export class InviteToken extends Document {
   @Prop({ required: true })
   email: string;
 
-  @Prop({ required: true })
-  name: string;
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  invitedBy: Types.ObjectId;
 }
 
-export const InviteTokenSchema = SchemaFactory.createForClass(InviteToken);
+export const InviteSchema = SchemaFactory.createForClass(Invite);
