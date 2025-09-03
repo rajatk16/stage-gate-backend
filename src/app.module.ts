@@ -3,10 +3,11 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 import { AuthModule } from '@modules/auth/auth.module';
+import { UserModule } from '@modules/user/user.module';
+import { InviteModule } from '@modules/invite/invite.module';
 import { DatabaseModule } from '@modules/database/database.module';
-import { UserModule } from './modules/user/user.module';
-import { OrganizationModule } from './modules/organization/organization.module';
-import { ConferenceModule } from './modules/conference/conference.module';
+import { ConferenceModule } from '@modules/conference/conference.module';
+import { OrganizationModule } from '@modules/organization/organization.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ConferenceModule } from './modules/conference/conference.module';
     UserModule,
     OrganizationModule,
     ConferenceModule,
+    InviteModule,
   ],
 })
 export class AppModule {}

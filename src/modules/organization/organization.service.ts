@@ -15,18 +15,36 @@ export class OrganizationService {
   ) {}
 
   async createOrganization(userId: string, dto: CreateOrganizationDto) {
-    const user = await this.userModel.findById(userId);
-    if (!user) throw new NotFoundException('User not found');
+    const session = await this.organizationModel.db.startSession();
+    session.startTransaction();
 
-    const org = await this.organizationModel.create({
-      createdBy: userId,
-      ...dto,
-    });
+    try {
+      // Verify the user exists
+      const user = await this.userModel.findById(userId).session(session);
+      if (!user) throw new NotFoundException('User not found');
 
-    user.organizations.push({ organizationId: new Types.ObjectId(org._id as string), role: OrgRole.OWNER.toString() });
-    await user.save();
+      // Create the organization
+      const org = new this.organizationModel({
+        ...dto,
+        createdBy: user._id,
+      });
+      await org.save({ session });
 
-    return org;
+      // Update the user
+      user.organizations.push({
+        organizationId: new Types.ObjectId(org._id as string),
+        role: OrgRole.OWNER.toString(),
+      });
+      await user.save({ session });
+
+      await session.commitTransaction();
+      return org;
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
   }
 
   async findAll() {
@@ -46,17 +64,44 @@ export class OrganizationService {
   }
 
   async remove(userId: string, id: string) {
-    const user = await this.userModel.findByIdAndUpdate(
-      userId,
-      { $pull: { organizations: { organizationId: id } } },
-      { new: true },
-    );
-    if (!user) throw new NotFoundException('User not found');
+    const org = await this.organizationModel.findById(id);
 
-    await this.conferenceModel.deleteMany({ organizationId: id });
+    if (!org) throw new NotFoundException('Organization not found');
 
-    await this.organizationModel.findByIdAndDelete(id);
+    const session = await this.organizationModel.db.startSession();
+    session.startTransaction();
 
-    return { success: true };
+    try {
+      // Delete the organization
+      await this.organizationModel.deleteOne({ _id: id }, { session });
+
+      // Find all conferences related to this organization
+      const conferences = await this.conferenceModel.find({ organizationId: id }, { session });
+
+      // Delete the conferences
+      await this.conferenceModel.deleteMany({ organizationId: id }, { session });
+
+      // Remove the organization from all users
+      await this.userModel.updateMany(
+        { organizations: { $in: [id] } },
+        { $pull: { organizations: { organizationId: id } } },
+        { session },
+      );
+
+      // Remove the conferences from all users
+      await this.userModel.updateMany(
+        { conferences: { $in: conferences.map((conference) => conference._id) } },
+        { $pull: { conferences: { $in: conferences.map((conference) => conference._id) } } },
+        { session },
+      );
+
+      await session.commitTransaction();
+      return { success: true };
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
   }
 }

@@ -19,21 +19,22 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const existingUser = await this.userModel.findOne({ email: dto.email });
+    const normalizedEmail = dto.email.toLowerCase().trim();
+    const existingUser = await this.userModel.findOne({ email: normalizedEmail });
     if (existingUser) {
       throw new BadRequestException('User with this email already exists.');
     }
 
     const passwordHash = await this.hashData(dto.password);
     const user = await this.userModel.create({
-      email: dto.email,
+      email: normalizedEmail,
       passwordHash,
       name: dto.name,
     });
 
     await this.createEmailVerfication(user._id as string);
 
-    const tokens = await this.getTokens(user._id as string, user.email);
+    const tokens = await this.getTokens(user._id as string, normalizedEmail);
     user.refreshTokenHash = await this.hashData(tokens.refreshToken);
     await user.save();
 
@@ -41,7 +42,8 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = await this.userModel.findOne({ email: dto.email });
+    const normalizedEmail = dto.email.toLowerCase().trim();
+    const user = await this.userModel.findOne({ email: normalizedEmail });
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials. User not found.');
@@ -52,7 +54,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials. Password does not match.');
     }
 
-    const tokens = await this.getTokens(user._id as string, user.email);
+    const tokens = await this.getTokens(user._id as string, normalizedEmail);
     user.refreshTokenHash = await this.hashData(tokens.refreshToken);
     await user.save();
 
@@ -66,7 +68,8 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials. User not found or does not have a refresh token.');
     }
 
-    const tokens = await this.getTokens(user._id as string, user.email);
+    const normalizedEmail = user.email.toLowerCase().trim();
+    const tokens = await this.getTokens(user._id as string, normalizedEmail);
     user.refreshTokenHash = await this.hashData(tokens.refreshToken);
     await user.save();
 
@@ -122,11 +125,12 @@ export class AuthService {
   }
 
   private async getTokens(userId: string, email: string) {
+    const normalizedEmail = email.toLowerCase().trim();
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(
         {
           sub: userId,
-          email,
+          email: normalizedEmail,
         },
         {
           secret: this.configService.getOrThrow<string>('JWT_ACCESS_TOKEN_SECRET'),
@@ -136,7 +140,7 @@ export class AuthService {
       this.jwtService.signAsync(
         {
           sub: userId,
-          email,
+          email: normalizedEmail,
         },
         {
           secret: this.configService.getOrThrow<string>('JWT_REFRESH_TOKEN_SECRET'),
@@ -148,7 +152,8 @@ export class AuthService {
   }
 
   async forgotPassword(email: string) {
-    const user = await this.userModel.findOne({ email });
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await this.userModel.findOne({ email: normalizedEmail });
     if (!user) throw new NotFoundException('User not found.');
 
     const resetToken = crypto.randomBytes(32).toString('hex');

@@ -3,16 +3,16 @@ import { MongooseModule } from '@nestjs/mongoose';
 
 import {
   User,
+  Invite,
   Review,
   Conference,
   Submission,
   UserSchema,
-  InviteToken,
+  InviteSchema,
   Organization,
   ReviewSchema,
   ConferenceSchema,
   SubmissionSchema,
-  InviteTokenSchema,
   OrganizationSchema,
 } from '@common/schemas';
 
@@ -24,8 +24,8 @@ import {
         schema: ConferenceSchema,
       },
       {
-        name: InviteToken.name,
-        schema: InviteTokenSchema,
+        name: Invite.name,
+        schema: InviteSchema,
       },
       {
         name: Organization.name,
