@@ -1,5 +1,6 @@
 import { Document, Types } from 'mongoose';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { ConferenceRole, OrgRole } from '@common/enums';
 
 @Schema({ timestamps: true, expires: '7d' })
 export class Invite extends Document {
@@ -12,11 +13,11 @@ export class Invite extends Document {
   @Prop({ type: Types.ObjectId, ref: 'Conference' })
   conferenceId?: Types.ObjectId;
 
-  @Prop({ required: false })
-  orgRole?: string;
+  @Prop({ required: false, type: String, enum: Object.values(OrgRole) })
+  orgRole?: OrgRole;
 
-  @Prop({ required: false })
-  confRole?: string;
+  @Prop({ required: false, type: String, enum: Object.values(ConferenceRole) })
+  confRole?: ConferenceRole;
 
   @Prop({ required: true })
   email: string;

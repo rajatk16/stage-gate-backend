@@ -20,6 +20,12 @@ export class Conference extends Document {
 
   @Prop({ required: true, type: Types.ObjectId, ref: 'User' })
   createdBy: Types.ObjectId;
+
+  @Prop({ type: Date, required: false })
+  cfpStartDate?: Date;
+
+  @Prop({ type: Date, required: false })
+  cfpEndDate?: Date;
 }
 
 export const ConferenceSchema = SchemaFactory.createForClass(Conference);

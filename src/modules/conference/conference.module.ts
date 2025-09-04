@@ -6,9 +6,9 @@ import { ConferenceController } from './conference.controller';
 import { DatabaseModule } from '@modules/database/database.module';
 
 @Module({
-  imports: [DatabaseModule, UserModule],
   exports: [ConferenceService],
   providers: [ConferenceService],
   controllers: [ConferenceController],
+  imports: [DatabaseModule, UserModule],
 })
 export class ConferenceModule {}

@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsObject, IsOptional, IsString, IsUrl } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsObject, IsOptional, IsString, IsUrl } from 'class-validator';
 
 export class CreateOrganizationDto {
   @IsString()
@@ -25,4 +25,8 @@ export class CreateOrganizationDto {
   @IsObject()
   @IsOptional()
   settings?: Record<string, any>;
+
+  @IsBoolean()
+  @IsOptional()
+  isPublic?: boolean;
 }
