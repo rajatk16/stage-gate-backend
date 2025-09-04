@@ -1,8 +1,8 @@
 import { Model, Types } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 
-import { ConferenceRole } from '@common/enums';
+import { ConferenceRole, OrgRole } from '@common/enums';
 import { Conference, Organization, User } from '@common/schemas';
 import { CreateConferenceDto, UpdateConferenceDto } from './dto';
 
@@ -27,6 +27,15 @@ export class ConferenceService {
       const user = await this.userModel.findById(userId).session(session);
       if (!user) throw new NotFoundException('User not found');
 
+      const existingConf = await this.conferenceModel
+        .findOne({
+          name: createConferenceDto.name,
+          organizationId: new Types.ObjectId(orgId),
+        })
+        .session(session);
+
+      if (existingConf) throw new BadRequestException('Conference with this name already exists in this organization');
+
       // Create the conference
       const conference = new this.conferenceModel({
         ...createConferenceDto,
@@ -36,22 +45,58 @@ export class ConferenceService {
       await conference.save({ session });
 
       // Add the conference to the organization
-      organization.conferences.push(new Types.ObjectId(conference._id as string));
-      await organization.save({ session });
-
-      // Update the user
-      await this.userModel.updateOne(
-        { _id: userId },
-        {
-          $addToSet: {
-            conferences: {
-              conferenceId: new Types.ObjectId(conference._id as string),
-              role: ConferenceRole.ORGANIZER,
-            },
-          },
-        },
+      await this.organizationModel.updateOne(
+        { _id: orgId },
+        { $addToSet: { conferences: conference._id } },
         { session },
       );
+
+      // If current user is not the owner, find the owner
+      const userOrgMembership = user.organizations.find((o) => o.organizationId.toString() === orgId);
+      if (!userOrgMembership) throw new NotFoundException('User not found in organization');
+
+      let confCreatorRole: ConferenceRole | null = null;
+      if (userOrgMembership.role === OrgRole.OWNER) {
+        confCreatorRole = ConferenceRole.OWNER;
+      } else {
+        confCreatorRole = ConferenceRole.ADMIN;
+      }
+
+      await this.userModel.updateOne(
+        { _id: user._id },
+        { $addToSet: { conferences: { conferenceId: conference._id, role: confCreatorRole } } },
+        { session },
+      );
+
+      const owners = await this.userModel
+        .find({
+          'organizations.organizationId': orgId,
+          'organizations.role': OrgRole.OWNER,
+        })
+        .session(session);
+
+      for (const owner of owners) {
+        await this.userModel.updateOne(
+          { _id: owner._id },
+          { $addToSet: { conferences: { conferenceId: conference._id, role: ConferenceRole.OWNER } } },
+          { session },
+        );
+      }
+
+      const admins = await this.userModel
+        .find({
+          'organizations.organizationId': orgId,
+          'organizations.role': OrgRole.ADMIN,
+        })
+        .session(session);
+
+      for (const admin of admins) {
+        await this.userModel.updateOne(
+          { _id: admin._id },
+          { $addToSet: { conferences: { conferenceId: conference._id, role: ConferenceRole.ADMIN } } },
+          { session },
+        );
+      }
 
       await session.commitTransaction();
       return conference;
@@ -115,5 +160,50 @@ export class ConferenceService {
     } finally {
       await session.endSession();
     }
+  }
+
+  async joinConference(userId: string, confId: string) {
+    const conf = await this.conferenceModel.findById(confId);
+    if (!conf) throw new NotFoundException('Conference not found');
+
+    const org = await this.organizationModel.findById(conf.organizationId);
+    if (!org) throw new NotFoundException('Organization not found');
+
+    const user = await this.userModel.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+
+    const orgMembership = user.organizations.find((o) => o.organizationId.equals(org._id as Types.ObjectId));
+    if (!orgMembership) throw new ForbiddenException('You are not a member of this organization');
+
+    if (user.conferences.find((c) => c.conferenceId.equals(conf._id as Types.ObjectId)))
+      throw new BadRequestException('You are already a member of this conference');
+
+    let role: ConferenceRole;
+    if ([OrgRole.OWNER].includes(orgMembership.role)) {
+      role = ConferenceRole.OWNER;
+    } else if ([OrgRole.ADMIN].includes(orgMembership.role)) {
+      role = ConferenceRole.ADMIN;
+    } else {
+      role = ConferenceRole.SPEAKER;
+    }
+
+    user.conferences.push({
+      conferenceId: new Types.ObjectId(conf._id as string),
+      role,
+    });
+
+    await user.save();
+  }
+
+  async leaveConference(userId: string, confId: string) {
+    const user = await this.userModel.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+
+    const conf = await this.conferenceModel.findById(confId);
+    if (!conf) throw new NotFoundException('Conference not found');
+
+    user.conferences = user.conferences.filter((c) => !c.conferenceId.equals(conf._id as Types.ObjectId));
+
+    await user.save();
   }
 }

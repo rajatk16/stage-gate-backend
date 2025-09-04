@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsObject, IsOptional, IsString } from 'class-validator';
+import { IsDate, IsNotEmpty, IsObject, IsOptional, IsString } from 'class-validator';
 
 export class CreateConferenceDto {
   @IsString()
@@ -16,4 +16,12 @@ export class CreateConferenceDto {
   @IsObject()
   @IsOptional()
   metadata?: Record<string, any>;
+
+  @IsDate()
+  @IsOptional()
+  cfpStartDate?: Date;
+
+  @IsDate()
+  @IsOptional()
+  cfpEndDate?: Date;
 }

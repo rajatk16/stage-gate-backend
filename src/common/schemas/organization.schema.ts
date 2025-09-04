@@ -20,7 +20,7 @@ export class Organization extends Document {
   @Prop({ required: false })
   logo?: string;
 
-  @Prop({ required: true, default: 'free', enum: ['free', 'pro', 'enterprise'] })
+  @Prop({ required: true, default: 'free', type: String, enum: ['free', 'pro', 'enterprise'] })
   plan: string;
 
   @Prop({ default: {}, type: Object })
@@ -31,6 +31,9 @@ export class Organization extends Document {
 
   @Prop({ required: true, type: Types.ObjectId, ref: 'User' })
   createdBy: Types.ObjectId;
+
+  @Prop({ default: false })
+  isPublic: boolean;
 }
 
 export const OrganizationSchema = SchemaFactory.createForClass(Organization);

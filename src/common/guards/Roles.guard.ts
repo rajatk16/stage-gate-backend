@@ -35,7 +35,7 @@ export class RolesGuard implements CanActivate {
         throw new ForbiddenException('Organization ID not found in request');
       }
       const hasOrgRole = user.organizations.some(
-        (org) => org.organizationId.toString() === orgId.toString() && requiredRoles.org?.includes(org.role as OrgRole),
+        (org) => org.organizationId.toString() === orgId.toString() && requiredRoles.org?.includes(org.role),
       );
       if (hasOrgRole) return true;
     }
@@ -46,9 +46,7 @@ export class RolesGuard implements CanActivate {
         throw new ForbiddenException('Conference ID not found in request');
       }
       const hasConfRole = user.conferences.some(
-        (conf) =>
-          conf.conferenceId.toString() === confId.toString() &&
-          requiredRoles.conf?.includes(conf.role as ConferenceRole),
+        (conf) => conf.conferenceId.toString() === confId.toString() && requiredRoles.conf?.includes(conf.role),
       );
       if (hasConfRole) return true;
     }

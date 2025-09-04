@@ -1,6 +1,6 @@
 import { Model, Types } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 
 import { OrgRole } from '@common/enums';
 import { Conference, Organization, User } from '@common/schemas';
@@ -33,7 +33,7 @@ export class OrganizationService {
       // Update the user
       user.organizations.push({
         organizationId: new Types.ObjectId(org._id as string),
-        role: OrgRole.OWNER.toString(),
+        role: OrgRole.OWNER,
       });
       await user.save({ session });
 
@@ -103,5 +103,40 @@ export class OrganizationService {
     } finally {
       await session.endSession();
     }
+  }
+
+  async joinOrganization(userId: string, orgId: string) {
+    const org = await this.organizationModel.findById(orgId);
+
+    if (!org) throw new NotFoundException('Organization not found');
+
+    if (!org.isPublic) throw new ForbiddenException('This organization is private. You need to be invited to join.');
+
+    const user = await this.userModel.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+
+    if (user.organizations.find((o) => o.organizationId.toString() === org._id))
+      throw new BadRequestException('You are already a member of this organization.');
+
+    user.organizations.push({
+      organizationId: new Types.ObjectId(org._id as string),
+      role: OrgRole.MEMBER,
+    });
+
+    await user.save();
+  }
+
+  async leaveOrganization(userId: string, orgId: string) {
+    const user = await this.userModel.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+
+    user.organizations = user.organizations.filter((o) => !o.organizationId.equals(new Types.ObjectId(orgId)));
+
+    const confs = await this.conferenceModel.find({ organizationId: orgId }).select('_id');
+    const confIds = confs.map((c) => c._id as Types.ObjectId);
+
+    user.conferences = user.conferences.filter((c) => !confIds.includes(c.conferenceId));
+
+    await user.save();
   }
 }

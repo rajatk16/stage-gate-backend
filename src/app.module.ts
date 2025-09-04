@@ -11,6 +11,12 @@ import { OrganizationModule } from '@modules/organization/organization.module';
 
 @Module({
   imports: [
+    AuthModule,
+    UserModule,
+    InviteModule,
+    DatabaseModule,
+    ConferenceModule,
+    OrganizationModule,
     ConfigModule.forRoot({ isGlobal: true }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
@@ -19,12 +25,6 @@ import { OrganizationModule } from '@modules/organization/organization.module';
       }),
       inject: [ConfigService],
     }),
-    DatabaseModule,
-    AuthModule,
-    UserModule,
-    OrganizationModule,
-    ConferenceModule,
-    InviteModule,
   ],
 })
 export class AppModule {}

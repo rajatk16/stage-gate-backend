@@ -5,7 +5,8 @@ export enum OrgRole {
 }
 
 export enum ConferenceRole {
-  ORGANIZER = 'ORGANIZER',
+  OWNER = 'OWNER',
+  ADMIN = 'ADMIN',
   REVIEWER = 'REVIEWER',
   SPEAKER = 'SPEAKER',
 }

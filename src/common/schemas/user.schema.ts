@@ -20,23 +20,23 @@ export class User extends Document {
     type: [
       {
         organizationId: { type: Types.ObjectId, ref: 'Organization', required: true },
-        role: { type: String, enum: OrgRole, required: true },
+        role: { type: String, enum: Object.values(OrgRole), required: true },
       },
     ],
     default: [],
   })
-  organizations: { organizationId: Types.ObjectId; role: string }[];
+  organizations: { organizationId: Types.ObjectId; role: OrgRole }[];
 
   @Prop({
     type: [
       {
         conferenceId: { type: Types.ObjectId, ref: 'Conference', required: true },
-        role: { type: String, enum: ConferenceRole, required: true },
+        role: { type: String, enum: Object.values(ConferenceRole), required: true },
       },
     ],
     default: [],
   })
-  conferences: { conferenceId: Types.ObjectId; role: string }[];
+  conferences: { conferenceId: Types.ObjectId; role: ConferenceRole }[];
 
   @Prop({ type: Object })
   metadata: Record<string, any>;
